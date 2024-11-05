@@ -4,7 +4,7 @@ namespace Airalo\Helpers;
 
 final class Cached
 {
-    private const CACHE_KEY = 'airalo_';
+    private static $CACHE_KEY = 'airalo_';
 
     /**
      * @var mixed
@@ -16,9 +16,9 @@ final class Cached
      */
     private static $ttl = 86400;
 
-    private static string $cachePath = '';
+    private static $cachePath = '';
 
-    private static string $cacheName = '';
+    private static $cacheName = '';
 
     /**
      * @param mixed $work
@@ -26,7 +26,7 @@ final class Cached
      * @param int $ttl
      * @return mixed
      */
-    public static function get($work, string $cacheName, int $ttl = 0)
+    public static function get($work, $cacheName, $ttl = 0)
     {
         echo "cache get \n";
         self::init($cacheName);
@@ -48,19 +48,19 @@ final class Cached
     /**
      * @return void
      */
-    public static function clearCache(): void
+    public static function clearCache()
     {
         echo "cache clear \n";
         self::init();
 
-        array_map('unlink', glob(self::$cachePath . self::CACHE_KEY . '*'));
+        array_map('unlink', glob(self::$cachePath . self::$CACHE_KEY . '*'));
     }
 
     /**
      * @param string $cacheName
      * @return void
      */
-    private static function init(string $cacheName = ''): void
+    private static function init($cacheName = '')
     {
         if (self::$cachePath == '') {
             self::$cachePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR;
@@ -75,17 +75,17 @@ final class Cached
      * @param string $key
      * @return string
      */
-    private static function getID(string $key): string
+    private static function getID($key)
     {
         echo "getId \n";
-        return self::CACHE_KEY . md5($key);
+        return self::$CACHE_KEY . md5($key);
     }
 
     /**
      * @param int $customTtl
      * @return mixed
      */
-    private static function cacheGet(int $customTtl = 0)
+    private static function cacheGet($customTtl = 0)
     {
         echo "cacheGet \n";
         $file = self::$cachePath . self::$id;

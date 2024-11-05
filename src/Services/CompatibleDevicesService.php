@@ -11,20 +11,20 @@ use Airalo\Resources\CurlResource;
 
 class CompatibleDevicesService
 {
-    private string $accessToken;
+    private $accessToken;
 
-    private string $baseUrl;
+    private $baseUrl;
 
-    private Config $config;
+    private $config;
 
-    private CurlResource $curl;
+    private $curl;
 
     /**
      * @param Config $config
      * @param CurlResource $curl
      * @param string $accessToken
      */
-    public function __construct(Config $config, CurlResource $curl, string $accessToken)
+    public function __construct(Config $config, CurlResource $curl, $accessToken)
     {
         if (!$accessToken) {
             throw new AiraloException('Invalid access token please check your credentials');
@@ -42,16 +42,16 @@ class CompatibleDevicesService
      * @param array $params
      * @return EasyAccess|null
      */
-    public function getCompatibleDevices(array $params = []): ?EasyAccess
+    public function getCompatibleDevices($params = array())
     {
         $url = $this->baseUrl . ApiConstants::COMPATIBILITY_SLUG;
 
         // Use caching for the compatible devices response
         $result = Cached::get(function () use ($url, $params) {
-            $response = $this->curl->setHeaders([
+            $response = $this->curl->setHeaders(array(
                 'Content-Type: application/json',
                 'Authorization: Bearer ' . $this->accessToken,
-            ])->get($url . '?' . http_build_query($params));
+            ))->get($url . '?' . http_build_query($params));
 
             if (!$response) {
                 return null;
@@ -75,7 +75,7 @@ class CompatibleDevicesService
      * @param array $params
      * @return string
      */
-    private function getKey(string $url, array $params): string
+    private function getKey($url, $params)
     {
         return md5($url . json_encode($params) . json_encode($this->config->getHttpHeaders()) . $this->accessToken);
     }

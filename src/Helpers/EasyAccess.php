@@ -2,14 +2,14 @@
 
 namespace Airalo\Helpers;
 
-// Supressing deprecated warnings for PHP >= 8.0 on dynamically setting properties
+// Suppressing deprecated warnings for PHP >= 8.0 on dynamically setting properties
 error_reporting(E_ALL ^ (E_DEPRECATED));
 
 use Airalo\Exceptions\AiraloException;
 
 class EasyAccess implements \ArrayAccess, \Countable
 {
-    private const STRING_KEY = "stringData";
+    private static $STRING_KEY = "stringData";
 
     /**
      * @param mixed $data
@@ -31,7 +31,7 @@ class EasyAccess implements \ArrayAccess, \Countable
         }
 
         if (is_string($data)) {
-            return $this->offsetSet(self::STRING_KEY, $data);
+            return $this->offsetSet(self::$STRING_KEY, $data);
         }
 
         if (!is_array($data)) {
@@ -51,10 +51,10 @@ class EasyAccess implements \ArrayAccess, \Countable
     /**
      * @return string
      */
-    public function __toString(): string
+    public function __toString()
     {
-        if ($this->offsetExists(self::STRING_KEY)) {
-            return $this->offsetGet(self::STRING_KEY);
+        if ($this->offsetExists(self::$STRING_KEY)) {
+            return $this->offsetGet(self::$STRING_KEY);
         }
 
         return json_encode($this);
@@ -63,17 +63,17 @@ class EasyAccess implements \ArrayAccess, \Countable
     /**
      * @return int
      */
-    public function count(): int
+    public function count()
     {
         return count((array) $this);
     }
 
     /**
      * @param string $offset
-     * @param string $value
+     * @param mixed $value
      * @return void
      */
-    public function offsetSet($offset, $value): void
+    public function offsetSet($offset, $value)
     {
         if (!is_null($offset)) {
             $this->{$offset} = $value;
@@ -84,7 +84,7 @@ class EasyAccess implements \ArrayAccess, \Countable
      * @param string $offset
      * @return bool
      */
-    public function offsetExists($offset): bool
+    public function offsetExists($offset)
     {
         return isset($this->{$offset});
     }
@@ -93,7 +93,7 @@ class EasyAccess implements \ArrayAccess, \Countable
      * @param string $offset
      * @return void
      */
-    public function offsetUnset($offset): void
+    public function offsetUnset($offset)
     {
         unset($this->{$offset});
     }
@@ -102,7 +102,6 @@ class EasyAccess implements \ArrayAccess, \Countable
      * @param mixed $offset
      * @return mixed
      */
-    #[\ReturnTypeWillChange]
     public function offsetGet($offset)
     {
         return isset($this->{$offset}) ? $this->{$offset} : null;

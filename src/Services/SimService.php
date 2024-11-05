@@ -12,16 +12,15 @@ use Airalo\Resources\MultiCurlResource;
 
 class SimService
 {
-    private Config $config;
-
-    private CurlResource $curl;
-    private MultiCurlResource $multiCurl;
-    private string $baseUrl;
-    private string $accessToken;
+    private $config;
+    private $curl;
+    private $multiCurl;
+    private $baseUrl;
+    private $accessToken;
 
     /**
      * @param Config $config
-     * @param Curl $curl
+     * @param CurlResource $curl
      * @param MultiCurlResource $multiCurl
      * @param string $accessToken
      */
@@ -29,7 +28,7 @@ class SimService
         Config $config,
         CurlResource $curl,
         MultiCurlResource $multiCurl,
-        string $accessToken
+        $accessToken
     ) {
         if (!$accessToken) {
             throw new AiraloException('Invalid access token please check your credentials');
@@ -43,75 +42,69 @@ class SimService
     }
 
     /**
-     * @param array<string, mixed> $params An associative array of parameters
+     * @param array $params An associative array of parameters
      * @return EasyAccess|null
      */
-    public function simUsage(array $params = []): ?EasyAccess
+    public function simUsage(array $params = array())
     {
         $url = $this->buildUrl($params);
 
         $result = Cached::get(function () use ($url) {
-
-            /* @phpstan-ignore-next-line */
-            $response = $this->curl->setHeaders([
+            $response = $this->curl->setHeaders(array(
                 'Content-Type: application/json',
                 'Authorization: Bearer ' . $this->accessToken,
-            ])->get($url);
+            ))->get($url);
 
             $result = json_decode($response, true);
 
             return new EasyAccess($result);
         }, $this->getKey($url, $params), 300);
 
-        /* @phpstan-ignore-next-line */
-        return count($result['data']) ? $result : null;
+        return (count($result['data']) ? $result : null);
     }
 
     /**
-     * @param array<string> $iccids
+     * @param array $iccids
      * @return mixed
      */
-    public function simUsageBulk(array $iccids = [])
+    public function simUsageBulk(array $iccids = array())
     {
         foreach ($iccids as $iccid) {
             $this->multiCurl
                 ->tag($iccid)
-                ->setHeaders([
+                ->setHeaders(array(
                     'Content-Type: application/json',
                     'Authorization: Bearer ' . $this->accessToken,
-                ])->get($this->buildUrl(['iccid' => $iccid]));
+                ))->get($this->buildUrl(array('iccid' => $iccid)));
         }
 
         return Cached::get(function () {
             if (!$response = $this->multiCurl->exec()) {
                 return null;
             }
-    
-            $result = [];
-            /* @phpstan-ignore-next-line */
+
+            $result = array();
             foreach ($response as $iccid => $each) {
                 $result[$iccid] = new EasyAccess($each);
             }
-    
+
             return new EasyAccess($result);
-        }, $this->getKey(implode('', $iccids), []), 300);
+        }, $this->getKey(implode('', $iccids), array()), 300);
     }
 
     /**
      * Builds a URL based on the provided parameters.
      *
-     * @param array<string, mixed> $params An associative array of parameters. Must include the 'iccid' key.
+     * @param array $params An associative array of parameters. Must include the 'iccid' key.
      * @return string The constructed URL.
      * @throws AiraloException if the 'iccid' parameter is not provided or is not a valid type.
      */
-    private function buildUrl(array $params): string
+    private function buildUrl(array $params)
     {
-
         if (!isset($params['iccid'])) {
             throw new AiraloException('The parameter "iccid" is required.');
         }
 
-        /* @phpstan-ignore-next-line */
         $iccid = (string) $params['iccid'];
         $url = sprintf(
             '%s%s/%s/%s',
@@ -128,11 +121,11 @@ class SimService
      * Generates a unique key based on the provided URL, parameters, HTTP headers, and access token.
      *
      * @param string $url The base URL.
-     * @param array<string, mixed> $params An associative array of parameters.
+     * @param array $params An associative array of parameters.
      * @return string The generated unique key.
      */
-    private function getKey(string $url, array $params): string
+    private function getKey($url, array $params)
     {
-        return md5($url . json_encode($params) . json_encode($this->config->getHttpHeaders())  . $this->accessToken);
+        return md5($url . json_encode($params) . json_encode($this->config->getHttpHeaders()) . $this->accessToken);
     }
 }

@@ -11,17 +11,17 @@ use Airalo\Helpers\Signature;
 
 class TopupService
 {
-    private Config $config;
+    private $config;
 
-    private CurlResource $curl;
+    private $curl;
 
-    private Signature $signature;
+    private $signature;
 
-    private string $accessToken;
+    private $accessToken;
 
     /**
      * @param Config $config
-     * @param Curl $curl
+     * @param CurlResource $curl
      * @param Signature $signature
      * @param string $accessToken
      */
@@ -29,7 +29,7 @@ class TopupService
         Config $config,
         CurlResource $curl,
         Signature $signature,
-        string $accessToken
+        $accessToken
     ) {
         if (!$accessToken) {
             throw new AiraloException('Invalid access token please check your credentials');
@@ -45,16 +45,16 @@ class TopupService
      * @param array $payload
      * @return EasyAccess|null
      */
-    public function createTopup(array $payload): ?EasyAccess
+    public function createTopup(array $payload)
     {
         $this->validateTopup($payload);
 
         $response = $this->curl
-            ->setHeaders([
+            ->setHeaders(array(
                 'Accept: application/json',
                 'Authorization: Bearer ' . $this->accessToken,
                 'airalo-signature: ' . $this->signature->getSignature($payload),
-            ])
+            ))
             ->post($this->config->getUrl() . ApiConstants::TOPUPS_SLUG, http_build_query($payload));
 
         if ($this->curl->code != 200) {
@@ -71,7 +71,7 @@ class TopupService
      * @param array $payload
      * @return void
      */
-    private function validateTopup(array $payload): void
+    private function validateTopup(array $payload)
     {
         if (!isset($payload['package_id']) || $payload['package_id'] == '') {
             throw new AiraloException('The package_id is required, payload: ' . json_encode($payload));

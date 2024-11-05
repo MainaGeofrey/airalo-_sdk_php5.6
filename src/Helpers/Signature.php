@@ -4,12 +4,12 @@ namespace Airalo\Helpers;
 
 class Signature
 {
-    private string $secret;
+    private $secret;
 
     /**
      * @param string $secret
      */
-    public function __construct(string $secret)
+    public function __construct($secret)
     {
         $this->secret = $secret;
     }
@@ -18,7 +18,7 @@ class Signature
      * @param mixed $payload
      * @return string|null
      */
-    public function getSignature($payload): ?string
+    public function getSignature($payload)
     {
         if (!$payload = $this->preparePayload($payload)) {
             return null;
@@ -32,20 +32,20 @@ class Signature
      * @param mixed $payload
      * @return boolean
      */
-    public function checkSignature(?string $hash = null, $payload = null): bool
+    public function checkSignature($hash = null, $payload = null)
     {
         if (!$hash || !$payload = $this->preparePayload($payload)) {
             return false;
         }
 
-        return hash_equals($this->signData($payload), $hash);
+        return $this->secureCompare($this->signData($payload), $hash);
     }
 
     /**
      * @param mixed $payload
      * @return string|null
      */
-    private function preparePayload($payload): ?string
+    private function preparePayload($payload)
     {
         if (!$payload) {
             return null;
@@ -68,8 +68,28 @@ class Signature
      * @param string $algo
      * @return string
      */
-    private function signData(string $payload, string $algo = 'sha512'): string
+    private function signData($payload, $algo = 'sha512')
     {
         return hash_hmac($algo, $payload, $this->secret);
+    }
+
+    /**
+     * Securely compares two strings to prevent timing attacks
+     * @param string $str1
+     * @param string $str2
+     * @return bool
+     */
+    private function secureCompare($str1, $str2)
+    {
+        if (strlen($str1) !== strlen($str2)) {
+            return false;
+        }
+
+        $res = 0;
+        for ($i = 0; $i < strlen($str1); $i++) {
+            $res |= ord($str1[$i]) ^ ord($str2[$i]);
+        }
+
+        return $res === 0;
     }
 }

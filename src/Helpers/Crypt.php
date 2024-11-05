@@ -6,89 +6,76 @@ use Airalo\Exceptions\AiraloException;
 
 final class Crypt
 {
+    private static $cipher = 'AES-256-CBC';
+    private static $keyLength = 32; // For AES-256
+
     /**
+     * Encrypt the data using OpenSSL.
+     *
      * @param string $data
      * @param string $key
      * @return string
      */
-    public static function encrypt(string $data, string $key): string
+    public static function encrypt($data, $key)
     {
-        self::validateSodiumEnabled();
+        self::validateKey($key);
 
-        $key = substr($key, 0, SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
+        // Generate an initialization vector
+        $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length(self::$cipher));
 
-        if (!$key || strlen($key) != SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
-            return $data;
-        }
+        // Encrypt the data
+        $encrypted = openssl_encrypt($data, self::$cipher, $key, 0, $iv);
 
-        if (self::isEncrypted($data)) {
-            return $data;
-        }
-
-        $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
-
-        $encrypted = sodium_crypto_secretbox($data, $nonce, $key);
-
-        return base64_encode($nonce . $encrypted);
+        // Return the IV and the encrypted data
+        return base64_encode($iv . $encrypted);
     }
 
     /**
+     * Decrypt the data using OpenSSL.
+     *
      * @param string $data
      * @param string $key
      * @return string
      */
-    public static function decrypt(string $data, string $key): string
+    public static function decrypt($data, $key)
     {
-        self::validateSodiumEnabled();
+        self::validateKey($key);
 
-        $key = substr($key, 0, SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
+        // Decode the data
+        $decodedData = base64_decode($data);
 
-        if (!$key || strlen($key) != SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
-            return $data;
-        }
+        // Extract the IV and the encrypted data
+        $ivLength = openssl_cipher_iv_length(self::$cipher);
+        $iv = substr($decodedData, 0, $ivLength);
+        $encrypted = substr($decodedData, $ivLength);
 
-        if (!self::isEncrypted($data)) {
-            return $data;
-        }
-
-        $encrypted = base64_decode($data);
-
-        $nonce = substr($encrypted, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
-
-        $encrypted = substr($encrypted, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
-
-        return sodium_crypto_secretbox_open($encrypted, $nonce, $key);
+        // Decrypt the data
+        return openssl_decrypt($encrypted, self::$cipher, $key, 0, $iv);
     }
 
     /**
-     * @param mixed $data
-     * @return bool
-     */
-    public static function isEncrypted($data): bool
-    {
-        if (is_array($data) || is_object($data)) {
-            return false;
-        }
-
-        if (strlen($data) < 56) {
-            return false;
-        }
-
-        if (!$base64Decoded = base64_decode($data, true)) {
-            return false;
-        }
-
-        return !is_numeric($data) && base64_encode($base64Decoded) === $data;
-    }
-
-    /**
+     * Validate the key length.
+     *
+     * @param string $key
      * @throws AiraloException
      * @return void
      */
-    private static function validateSodiumEnabled(): void
+    private static function validateKey($key)
     {
-        if (!extension_loaded('sodium')) {
-            throw new AiraloException('Sodium library is not loaded');
+        if (strlen($key) < self::$keyLength) {
+            throw new AiraloException('The key must be at least ' . self::$keyLength . ' characters long.');
         }
+    }
+
+    /**
+     * Check if data is encrypted (basic check).
+     *
+     * @param mixed $data
+     * @return bool
+     */
+    public static function isEncrypted($data)
+    {
+        // A simple check can be implemented here if needed
+        return strpos($data, '==') !== false; // Base64 padding check
     }
 }

@@ -13,30 +13,25 @@ use Airalo\Resources\MultiCurlResource;
 
 class OrderService
 {
-    private Config $config;
+    private $config;
 
-    private CurlResource $curl;
+    private $curl;
 
-    private MultiCurlResource $multiCurl;
+    private $multiCurl;
 
-    private Signature $signature;
+    private $signature;
 
-    private string $accessToken;
+    private $accessToken;
 
     /**
      * @param Config $config
-     * @param Curl $curl
+     * @param CurlResource $curl
      * @param MultiCurlResource $multiCurl
      * @param Signature $signature
      * @param string $accessToken
      */
-    public function __construct(
-        Config $config,
-        CurlResource $curl,
-        MultiCurlResource $multiCurl,
-        Signature $signature,
-        string $accessToken
-    ) {
+    public function __construct(Config $config, CurlResource $curl, MultiCurlResource $multiCurl, Signature $signature, $accessToken)
+    {
         if (!$accessToken) {
             throw new AiraloException('Invalid access token please check your credentials');
         }
@@ -52,7 +47,7 @@ class OrderService
      * @param array $payload
      * @return EasyAccess|null
      */
-    public function createOrder(array $payload): ?EasyAccess
+    public function createOrder($payload)
     {
         $this->validateOrder($payload);
 
@@ -73,7 +68,7 @@ class OrderService
      * @param array $payload
      * @return EasyAccess|null
      */
-    public function createOrderAsync(array $payload): ?EasyAccess
+    public function createOrderAsync($payload)
     {
         $this->validateOrder($payload);
 
@@ -95,17 +90,17 @@ class OrderService
      * @param string|null $description
      * @return EasyAccess|null
      */
-    public function createOrderBulk(array $params, ?string $description = null): ?EasyAccess
+    public function createOrderBulk($params, $description = null)
     {
         $this->validateBulkOrder($params);
 
         foreach ($params as $packageId => $quantity) {
-            $payload = [
+            $payload = array(
                 'package_id' => $packageId,
                 'quantity' => $quantity,
                 'type' => 'sim',
-                'description' => $description ?? 'Bulk order placed via Airalo PHP SDK',
-            ];
+                'description' => $description ? $description : 'Bulk order placed via Airalo PHP SDK',
+            );
 
             $this->validateOrder($payload);
 
@@ -119,7 +114,7 @@ class OrderService
             return null;
         }
 
-        $result = [];
+        $result = array();
 
         foreach ($response as $key => $response) {
             $result[$key] = new EasyAccess($response);
@@ -134,18 +129,18 @@ class OrderService
      * @param string|null $description
      * @return EasyAccess|null
      */
-    public function createOrderAsyncBulk(array $params, ?string $webhookUrl = null, ?string $description = null): ?EasyAccess
+    public function createOrderAsyncBulk($params, $webhookUrl = null, $description = null)
     {
         $this->validateBulkOrder($params);
 
         foreach ($params as $packageId => $quantity) {
-            $payload = [
+            $payload = array(
                 'package_id' => $packageId,
                 'quantity' => $quantity,
                 'type' => 'sim',
-                'description' => $description ?? 'Bulk order placed via Airalo PHP SDK',
+                'description' => $description ? $description : 'Bulk order placed via Airalo PHP SDK',
                 'webhook_url' => $webhookUrl,
-            ];
+            );
 
             $this->validateOrder($payload);
 
@@ -159,7 +154,7 @@ class OrderService
             return null;
         }
 
-        $result = [];
+        $result = array();
 
         foreach ($response as $key => $response) {
             $result[$key] = new EasyAccess($response);
@@ -172,13 +167,13 @@ class OrderService
      * @param array $payload
      * @return array
      */
-    private function getHeaders(array $payload): array
+    private function getHeaders($payload)
     {
-        return [
+        return array(
             'Content-Type: application/json',
             'Authorization: Bearer ' . $this->accessToken,
             'airalo-signature: ' . $this->signature->getSignature($payload),
-        ];
+        );
     }
 
     /**
@@ -186,7 +181,7 @@ class OrderService
      * @param array $payload
      * @return void
      */
-    private function validateOrder(array $payload): void
+    private function validateOrder($payload)
     {
         if (!isset($payload['package_id']) || $payload['package_id'] == '') {
             throw new AiraloException('The package_id is required, payload: ' . json_encode($payload));
@@ -206,7 +201,7 @@ class OrderService
      * @param array $payload
      * @return void
      */
-    private function validateBulkOrder(array $payload): void
+    private function validateBulkOrder($payload)
     {
         if (count($payload) > SdkConstants::BULK_ORDER_LIMIT) {
             throw new AiraloException('The packages count may not be greater than ' . SdkConstants::BULK_ORDER_LIMIT);

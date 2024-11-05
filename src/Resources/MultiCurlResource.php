@@ -7,21 +7,21 @@ use Airalo\Exceptions\AiraloException;
 
 class MultiCurlResource
 {
-    private const WINDOW = 5;
+    private static $WINDOW = 5;
 
-    private array $handlers = [];
+    private $handlers = array();
 
-    private static array $headers = [];
+    private static $headers = array();
 
-    private array $options = [];
+    private $options = array();
 
-    private bool $ignoreSSL = false;
+    private $ignoreSSL = false;
 
-    private bool $timeout = false;
+    private $timeout = false;
 
     private $tag;
 
-    private Config $config;
+    private $config;
 
     /**
      * @param Config $config
@@ -40,7 +40,7 @@ class MultiCurlResource
      * @param array $args
      * @return MultiCurlResource
      */
-    public function add(string $methodName, array $args): MultiCurlResource
+    public function add($methodName, $args)
     {
         $curl = new CurlResource($this->config, true);
 
@@ -56,13 +56,17 @@ class MultiCurlResource
             $curl->setHeaders(self::$headers);
         }
 
-        $handler = call_user_func_array([$curl, $methodName], $args);
+        $handler = call_user_func_array(array($curl, $methodName), $args);
 
         foreach ($this->options as $option => $value) {
             curl_setopt($handler, $option, $value);
         }
 
-        !is_null($this->tag) ? $this->handlers[$this->tag] = $handler : $this->handlers[] = $handler;
+        if (!is_null($this->tag)) {
+            $this->handlers[$this->tag] = $handler;
+        } else {
+            $this->handlers[] = $handler;
+        }
 
         $this->tag = null;
 
@@ -73,7 +77,7 @@ class MultiCurlResource
      * @param array $options
      * @return MultiCurlResource
      */
-    public function setopt(array $options): MultiCurlResource
+    public function setopt($options)
     {
         $this->options = $options;
 
@@ -84,7 +88,7 @@ class MultiCurlResource
      * @param string $name
      * @return MultiCurlResource
      */
-    public function tag(string $name = ''): MultiCurlResource
+    public function tag($name = '')
     {
         if ($name) {
             $this->tag = $name;
@@ -98,9 +102,9 @@ class MultiCurlResource
      * @param array $params
      * @return MultiCurlResource
      */
-    public function get(string $url, array $params = []): MultiCurlResource
+    public function get($url, $params = array())
     {
-        $params = array_merge([$url], [$params]);
+        $params = array_merge(array($url), array($params));
 
         return $this->add('get', $params);
     }
@@ -110,9 +114,9 @@ class MultiCurlResource
      * @param array $params
      * @return MultiCurlResource
      */
-    public function post(string $url, array $params = []): MultiCurlResource
+    public function post($url, $params = array())
     {
-        $params = array_merge([$url], [$params]);
+        $params = array_merge(array($url), array($params));
 
         return $this->add('post', $params);
     }
@@ -121,7 +125,7 @@ class MultiCurlResource
      * @param array $headers
      * @return MultiCurlResource
      */
-    public function setHeaders(array $headers = []): MultiCurlResource
+    public function setHeaders($headers = array())
     {
         self::$headers = $headers;
 
@@ -132,7 +136,7 @@ class MultiCurlResource
      * Ignore SSL certificate
      * @return MultiCurlResource
      */
-    public function ignoreSSL(): MultiCurlResource
+    public function ignoreSSL()
     {
         $this->ignoreSSL = true;
 
@@ -143,7 +147,7 @@ class MultiCurlResource
      * @param int $timeout
      * @return MultiCurlResource
      */
-    public function setTimeout(int $timeout = 30): MultiCurlResource
+    public function setTimeout($timeout = 30)
     {
         $this->timeout = $timeout;
 
@@ -158,7 +162,7 @@ class MultiCurlResource
         $master = curl_multi_init();
         $responses = array_fill_keys(array_keys($this->handlers), false);
 
-        $rollingWindow = (sizeof($this->handlers) < self::WINDOW) ? sizeof($this->handlers) : self::WINDOW;
+        $rollingWindow = (sizeof($this->handlers) < self::$WINDOW) ? sizeof($this->handlers) : self::$WINDOW;
 
         reset($this->handlers);
 
@@ -185,12 +189,11 @@ class MultiCurlResource
                 $handler = next($this->handlers);
 
                 $checkHandler = version_compare(PHP_VERSION, '8.0.0', '>=')
-                    ? $handler instanceof \CurlHandle
+                    ? ($handler instanceof \CurlHandle)
                     : is_resource($handler);
 
                 if ($checkHandler) {
                     curl_multi_add_handle($master, $handler);
-
                     curl_multi_remove_handle($master, $done['handle']);
                 }
 
@@ -208,7 +211,7 @@ class MultiCurlResource
             }
         } while ($status === CURLM_CALL_MULTI_PERFORM || $active);
 
-        $this->handlers = [];
+        $this->handlers = array();
 
         curl_multi_close($master);
 

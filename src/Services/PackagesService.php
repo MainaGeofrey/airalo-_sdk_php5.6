@@ -11,30 +11,25 @@ use Airalo\Resources\CurlResource;
 
 class PackagesService
 {
-    private string $accessToken;
-
-    private string $baseUrl;
-
-    private Config $config;
-
-    private CurlResource $curl;
+    private $accessToken;
+    private $baseUrl;
+    private $config;
+    private $curl;
 
     /**
      * @param Config $config
      * @param CurlResource $curl
      * @param string $accessToken
      */
-    public function __construct(Config $config, CurlResource $curl, string $accessToken)
+    public function __construct(Config $config, CurlResource $curl, $accessToken)
     {
         if (!$accessToken) {
             throw new AiraloException('Invalid access token please check your credentials');
         }
 
         $this->accessToken = $accessToken;
-
         $this->config = $config;
         $this->baseUrl = $this->config->getUrl();
-
         $this->curl = $curl;
     }
 
@@ -42,23 +37,23 @@ class PackagesService
      * @param array $params
      * @return EasyAccess|null
      */
-    public function getPackages(array $params = []): ?EasyAccess
+    public function getPackages(array $params = array())
     {
         $url = $this->buildUrl($params);
 
         $result = Cached::get(function () use ($url, $params) {
-            $currentPage = $params['page'] ?? 1;
-            $result = ['data' => []];
+            $currentPage = isset($params['page']) ? $params['page'] : 1;
+            $result = array('data' => array());
 
             while (true) {
                 if ($currentPage) {
                     $pageUrl = $url . "&page=$currentPage";
                 }
 
-                $response = $this->curl->setHeaders([
+                $response = $this->curl->setHeaders(array(
                     'Content-Type: application/json',
                     'Authorization: Bearer ' . $this->accessToken,
-                ])->get($pageUrl ?? $url);
+                ))->get(isset($pageUrl) ? $pageUrl : $url);
 
                 if (!$response) {
                     return null;
@@ -76,14 +71,14 @@ class PackagesService
                     break;
                 }
 
-                if ($response['meta']['last_page'] == $currentPage) {
+                if (isset($response['meta']['last_page']) && $response['meta']['last_page'] == $currentPage) {
                     break;
                 }
 
                 $currentPage++;
             }
 
-            return new EasyAccess($params['flat'] ? $this->flatten($result) : $result);
+            return new EasyAccess(isset($params['flat']) && $params['flat'] ? $this->flatten($result) : $result);
         }, $this->getKey($url, $params), 3600);
 
         return count($result['data']) ? $result : null;
@@ -93,22 +88,17 @@ class PackagesService
      * @param array $params
      * @return string
      */
-    private function buildUrl(array $params): string
+    private function buildUrl(array $params)
     {
         $url = $this->baseUrl . ApiConstants::PACKAGES_SLUG . '?';
-
-        $queryParams = [];
-        $queryParams['include'] = 'topup';
+        $queryParams = array('include' => 'topup');
 
         if (isset($params['simOnly']) && $params['simOnly'] === true) {
             unset($queryParams['include']);
         }
 
-        if (isset($params['type']) && $params['type'] == 'local') {
-            $queryParams['filter[type]'] = 'local';
-        }
-        if (isset($params['type']) && $params['type'] == 'global') {
-            $queryParams['filter[type]'] = 'global';
+        if (isset($params['type'])) {
+            $queryParams['filter[type]'] = $params['type'];
         }
         if (isset($params['country'])) {
             $queryParams['filter[country]'] = $params['country'];
@@ -124,20 +114,20 @@ class PackagesService
      * @param array $data
      * @return array
      */
-    private function flatten(array $data): array
+    private function flatten(array $data)
     {
-        $flattened = ['data' => []];
+        $flattened = array('data' => array());
 
         foreach ($data['data'] as $each) {
             foreach ($each['operators'] as $operator) {
                 foreach ($operator['packages'] as $package) {
-                    $countries = [];
+                    $countries = array();
 
                     foreach ($operator['countries'] as $country) {
                         $countries[] = $country['country_code'];
                     }
 
-                    $flattened['data'][] = [
+                    $flattened['data'][] = array(
                         'package_id' => $package['id'],
                         'slug' => $each['slug'],
                         'type' => $package['type'],
@@ -153,15 +143,15 @@ class PackagesService
                         'text' => $package['text'],
                         'plan_type' => $operator['plan_type'],
                         'activation_policy' => $operator['activation_policy'],
-                        'operator' => [
+                        'operator' => array(
                             'title' => $operator['title'],
                             'is_roaming' => $operator['is_roaming'],
                             'info' => $operator['info'],
-                        ],
+                        ),
                         'countries' => $countries,
-                        'image' => $operator['image']['url'] ?? null,
+                        'image' => isset($operator['image']['url']) ? $operator['image']['url'] : null,
                         'other_info' => $operator['other_info'],
-                    ];
+                    );
                 }
             }
         }
@@ -174,7 +164,7 @@ class PackagesService
      * @param array $params
      * @return string
      */
-    private function getKey(string $url, array $params): string
+    private function getKey($url, array $params)
     {
         return md5($url . json_encode($params) . json_encode($this->config->getHttpHeaders())  . $this->accessToken);
     }

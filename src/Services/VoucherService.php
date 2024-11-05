@@ -12,13 +12,13 @@ use Airalo\Resources\CurlResource;
 
 class VoucherService
 {
-    private Config $config;
+    private $config;
 
-    private CurlResource $curl;
+    private $curl;
 
-    private Signature $signature;
+    private $signature;
 
-    private string $accessToken;
+    private $accessToken;
 
     /**
      * @param Config $config
@@ -31,7 +31,7 @@ class VoucherService
         Config $config,
         CurlResource $curl,
         Signature $signature,
-        string $accessToken
+        $accessToken
     ) {
         if (!$accessToken) {
             throw new AiraloException('Invalid access token please check your credentials');
@@ -44,13 +44,12 @@ class VoucherService
     }
 
     /**
-     * @param array<string, mixed> $payload Associative array of payload data
+     * @param array $payload Associative array of payload data
      * @return EasyAccess|null
      * @throws AiraloException
      */
-    public function createVoucher(array $payload): ?EasyAccess
+    public function createVoucher(array $payload)
     {
-
         $this->validateVoucher($payload);
 
         $response = $this->curl
@@ -67,13 +66,12 @@ class VoucherService
     }
 
     /**
-     * @param array<string, mixed> $payload Associative array of payload data
+     * @param array $payload Associative array of payload data
      * @return EasyAccess|null
      * @throws AiraloException
      */
-    public function createEsimVoucher(array $payload): ?EasyAccess
+    public function createEsimVoucher(array $payload)
     {
-
         $this->validateEsimVoucher($payload);
 
         $response = $this->curl
@@ -89,29 +87,27 @@ class VoucherService
         return new EasyAccess($response);
     }
 
-
-
     /**
-     * @param array<string, mixed> $payload Associative array of payload data
-     * @return array<string> List of header strings
+     * @param array $payload Associative array of payload data
+     * @return array List of header strings
      */
-    private function getHeaders(array $payload): array
+    private function getHeaders(array $payload)
     {
-        return [
+        return array(
             'Content-Type: application/json',
             'Authorization: Bearer ' . $this->accessToken,
             'airalo-signature: ' . $this->signature->getSignature($payload),
-        ];
+        );
     }
 
     /**
      * Validate the voucher payload.
      *
-     * @param array<string, mixed> $payload Associative array of payload data
+     * @param array $payload Associative array of payload data
      * @throws AiraloException
      * @return void
      */
-    private function validateVoucher(array $payload): void
+    private function validateVoucher(array $payload)
     {
         if (!isset($payload['amount']) || $payload['amount'] == '' || $payload['amount'] < 1) {
             throw new AiraloException('The amount is required, payload: ' . json_encode($payload));
@@ -145,11 +141,11 @@ class VoucherService
     /**
      * Validate the esim voucher payload.
      *
-     * @param array<string, mixed> $payload Associative array of payload data
+     * @param array $payload Associative array of payload data
      * @throws AiraloException
      * @return void
      */
-    private function validateEsimVoucher(array $payload): void
+    private function validateEsimVoucher(array $payload)
     {
         if (empty($payload['vouchers'])) {
             throw new AiraloException('vouchers field is required, payload: ' . json_encode($payload));
@@ -168,10 +164,9 @@ class VoucherService
                 throw new AiraloException('The vouchers.quantity is required and should be greater than 0, payload: ' . json_encode($payload));
             }
 
-            if ($payload['quantity'] > SdkConstants::VOUCHER_MAX_QUANTITY) {
+            if ($voucher['quantity'] > SdkConstants::VOUCHER_MAX_QUANTITY) {
                 throw new AiraloException('The vouchers.quantity may not be greater than ' . SdkConstants::VOUCHER_MAX_QUANTITY);
             }
         }
     }
-
 }

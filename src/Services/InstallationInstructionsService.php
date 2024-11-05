@@ -11,25 +11,22 @@ use Airalo\Resources\CurlResource;
 
 class InstallationInstructionsService
 {
-    private Config $config;
+    private $config;
 
-    private CurlResource $curl;
+    private $curl;
 
-    private string $baseUrl;
+    private $baseUrl;
 
-    private string $accessToken;
+    private $accessToken;
 
     /**
      * @param Config $config
-     * @param Curl $curl
+     * @param CurlResource $curl
      * @param string $accessToken
      * @throws AiraloException
      */
-    public function __construct(
-        Config $config,
-        CurlResource $curl,
-        string $accessToken
-    ) {
+    public function __construct(Config $config, CurlResource $curl, $accessToken)
+    {
         if (!$accessToken) {
             throw new AiraloException('Invalid access token please check your credentials');
         }
@@ -41,47 +38,41 @@ class InstallationInstructionsService
     }
 
     /**
-     * @param array<string, mixed> $params An associative array of parameters
+     * @param array $params An associative array of parameters
      * @return EasyAccess|null
      */
-    public function getInstructions(array $params = []): ?EasyAccess
+    public function getInstructions($params = array())
     {
         $url = $this->buildUrl($params);
 
         $result = Cached::get(function () use ($url, $params) {
-
-            /* @phpstan-ignore-next-line */
-            $response = $this->curl->setHeaders([
+            $response = $this->curl->setHeaders(array(
                 'Content-Type: application/json',
                 'Authorization: Bearer ' . $this->accessToken,
-                'Accept-Language: ' . $params['language']
-            ])->get($url);
-
+                'Accept-Language: ' . (isset($params['language']) ? $params['language'] : '')
+            ))->get($url);
 
             $result = json_decode($response, true);
 
             return new EasyAccess($result);
         }, $this->getKey($url, $params), 3600);
 
-        /* @phpstan-ignore-next-line */
-        return count($result['data']) ? $result : null;
+        return isset($result['data']) && count($result['data']) ? $result : null;
     }
 
     /**
      * Builds a URL based on the provided parameters.
      *
-     * @param array<string, mixed> $params An associative array of parameters. Must include the 'iccid' key.
+     * @param array $params An associative array of parameters. Must include the 'iccid' key.
      * @return string The constructed URL.
      * @throws AiraloException if the 'iccid' parameter is not provided or is not a valid type.
      */
-    private function buildUrl(array $params): string
+    private function buildUrl($params)
     {
-
         if (!isset($params['iccid'])) {
             throw new AiraloException('The parameter "iccid" is required.');
         }
 
-        /* @phpstan-ignore-next-line */
         $iccid = (string) $params['iccid'];
         $url = sprintf(
             '%s%s/%s/%s',
@@ -98,10 +89,10 @@ class InstallationInstructionsService
      * Generates a unique key based on the provided URL, parameters, HTTP headers, and access token.
      *
      * @param string $url The base URL.
-     * @param array<string, mixed> $params An associative array of parameters.
+     * @param array $params An associative array of parameters.
      * @return string The generated unique key.
      */
-    private function getKey(string $url, array $params): string
+    private function getKey($url, $params)
     {
         return md5($url . json_encode($params) . json_encode($this->config->getHttpHeaders())  . $this->accessToken);
     }
