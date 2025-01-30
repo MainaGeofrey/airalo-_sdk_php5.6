@@ -59,7 +59,7 @@ class TopupService
 
         if ($this->curl->code != 200) {
             throw new AiraloException(
-                'Topup creation failed, status code: ' . $this->curl->code . ', response: ' . $response
+                'Topup creation failed, status code: ' . $this->curl->code
             );
         }
 
@@ -74,11 +74,11 @@ class TopupService
     private function validateTopup(array $payload)
     {
         if (!isset($payload['package_id']) || $payload['package_id'] == '') {
-            throw new AiraloException('The package_id is required, payload: ' . json_encode($payload));
+            throw new AiraloException('The package_id is required, payload: ');
         }
 
         if (!isset($payload['iccid']) || $payload['iccid'] == '') {
-            throw new AiraloException('The iccid is required, payload: ' . json_encode($payload));
+            throw new AiraloException('The iccid is required, payload: ');
         }
     }
 }

@@ -28,7 +28,7 @@ final class Cached
      */
     public static function get($work, $cacheName, $ttl = 0)
     {
-        echo "cache get \n";
+       // echo "cache get \n";
         self::init($cacheName);
 
         self::$id = self::getID($cacheName);
@@ -42,6 +42,7 @@ final class Cached
             return self::cacheThis($result);
         }
 
+      //  $result["from_cache"] = true;
         return $result;
     }
 
@@ -50,7 +51,7 @@ final class Cached
      */
     public static function clearCache()
     {
-        echo "cache clear \n";
+       // echo "cache clear \n";
         self::init();
 
         array_map('unlink', glob(self::$cachePath . self::$CACHE_KEY . '*'));
@@ -77,7 +78,7 @@ final class Cached
      */
     private static function getID($key)
     {
-        echo "getId \n";
+       // echo "getId \n";
         return self::$CACHE_KEY . md5($key);
     }
 
@@ -87,7 +88,7 @@ final class Cached
      */
     private static function cacheGet($customTtl = 0)
     {
-        echo "cacheGet \n";
+       // echo "cacheGet \n";
         $file = self::$cachePath . self::$id;
 
         if (!file_exists($file)) {
@@ -114,7 +115,7 @@ final class Cached
      */
     private static function cacheThis($result)
     {
-        echo "cacheThis \n";
+      //  echo "cacheThis \n";
         if (!$result) {
             return;
         }

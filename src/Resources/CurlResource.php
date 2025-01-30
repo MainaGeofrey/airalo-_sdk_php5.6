@@ -5,6 +5,7 @@ namespace Airalo\Resources;
 use Airalo\Config;
 use Airalo\Constants\SdkConstants;
 use Airalo\Exceptions\AiraloException;
+use Exception;
 
 class CurlResource
 {
@@ -25,6 +26,8 @@ class CurlResource
 
     private $getHandler = false;
 
+    private $db = null;
+
     private $requestHeaders = [];
 
     private $defaultHeaders = [
@@ -35,7 +38,7 @@ class CurlResource
      * @param Config $config
      * @param boolean $getHandler
      */
-    public function __construct(Config $config, $getHandler = false) // Removed bool type hint
+    public function __construct(Config $config, $getHandler = false, $db = null)
     {
         if (!extension_loaded('curl')) {
             throw new AiraloException('cURL library is not loaded');
@@ -43,6 +46,7 @@ class CurlResource
 
         $this->getHandler = $getHandler;
         $this->config = $config;
+        $this->db = $db;
 
         $this->requestHeaders = array_merge($this->defaultHeaders, $this->config->getHttpHeaders());
     }
@@ -52,7 +56,7 @@ class CurlResource
      * @param array $args
      * @return mixed
      */
-    public function __call($methodName, $args) // Removed type hints
+    public function __call($methodName, $args)
     {
         if (!method_exists($this, $methodName)) {
             return false;
@@ -69,7 +73,7 @@ class CurlResource
      * @param string $url
      * @return mixed
      */
-    private function request($url = '') // Removed type hint
+    private function request($url = '')
     {
         curl_setopt($this->curl, CURLOPT_URL, $url);
         curl_setopt($this->curl, CURLOPT_VERBOSE, true);
@@ -106,12 +110,139 @@ class CurlResource
 
         preg_match('#HTTP.* (?P<code>\d+)#', $header, $matches);
         $this->header = $header;
-        $this->code = (int)(isset($matches['code']) ? $matches['code'] : null); // Replaced null coalescing operator
+        $this->code = (int)(isset($matches['code']) ? $matches['code'] : null);
 
         $this->reset();
 
         return $response;
     }
+
+
+    /**
+     * Log API request details to database
+     * 
+     * @param string $url The request URL
+     * @param string $response The response body
+     * @param array $info The curl_getinfo array
+     * @return void
+     */
+    private function logApiRequest($url, $response, $info)
+    {
+        try {
+            echo "hhh";
+            // Skip logging if no database connection
+            if (!$this->db) {
+                echo "hhh";
+                return;
+            }
+
+            // Build comprehensive response data
+            $responseData = [
+                'request' => [
+                    'url' => $url,
+                    'method' => $info['request_header'] ? explode(' ', explode("\n", $info['request_header'])[0])[0] : null,
+                    'headers' => $info['request_header'] ?? null
+                ],
+                'response' => [
+                    'http_code' => $info['http_code'],
+                    'body' => $response,
+                    'headers' => $this->header,
+                    'total_time' => $info['total_time'],
+                    'size' => $info['size_download']
+                ],
+                'curl_error' => curl_error($this->curl),
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+
+            // Prepare database insert
+            $insertData = [
+                'response' => json_encode($responseData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+
+            // Insert log entry
+            $this->db->insert('airalo_api_logs', $insertData);
+        } catch (Exception $e) {
+            // Log error but don't disrupt main flow
+            error_log("API logging failed: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Make HTTP request and handle response
+     * 
+     * @param string $url The request URL
+     * @return string Response body
+     * @throws Exception on curl errors
+     */
+    public function request2($url = '')
+    {
+        try {
+            // Configure curl request
+            curl_setopt($this->curl, CURLOPT_URL, $url);
+            curl_setopt($this->curl, CURLOPT_VERBOSE, true);
+            curl_setopt($this->curl, CURLOPT_HTTPHEADER, $this->requestHeaders);
+            curl_setopt($this->curl, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($this->curl, CURLOPT_HEADER, true);
+
+            // Handle SSL verification settings
+            if ($this->ignoreSSL) {
+                curl_setopt($this->curl, CURLOPT_SSL_VERIFYHOST, 0);
+                curl_setopt($this->curl, CURLOPT_SSL_VERIFYPEER, 0);
+                $this->ignoreSSL = false;
+            }
+
+            // Execute request
+            $resp = curl_exec($this->curl);
+
+            if ($resp === false) {
+                throw new Exception('cURL Error: ' . curl_error($this->curl));
+            }
+
+            // Get response info and parse headers
+            $info = curl_getinfo($this->curl);
+            $headerSize = $info['header_size'];
+            $header = substr($resp, 0, $headerSize);
+            $body = substr($resp, $headerSize);
+
+            // Parse response code
+            preg_match('#HTTP.* (?P<code>\d+)#', $header, $matches);
+            $this->header = $header;
+            $this->code = (int)(isset($matches['code']) ? $matches['code'] : null);
+
+            // Handle 417 Expectation Failed
+            if ($info['http_code'] == 417) {
+                // Retry without Expect header
+                curl_setopt($this->curl, CURLOPT_HTTPHEADER, array_merge($this->requestHeaders, ["Expect:  "]));
+                $resp = curl_exec($this->curl);
+                $info = curl_getinfo($this->curl);
+
+                // Re-parse response
+                $headerSize = $info['header_size'];
+                $header = substr($resp, 0, $headerSize);
+                $body = substr($resp, $headerSize);
+
+                preg_match('#HTTP.* (?P<code>\d+)#', $header, $matches);
+                $this->header = $header;
+                $this->code = (int)(isset($matches['code']) ? $matches['code'] : null);
+            }
+
+            // Log the request
+            //  $this->logApiRequest($url, $body, $info);
+
+            // Clean up
+            $this->reset();
+
+            return $body;
+        } catch (Exception $e) {
+            // Log the error before rethrowing
+            if ($this->db) {
+                $this->logApiRequest($url, null, curl_getinfo($this->curl));
+            }
+            throw $e;
+        }
+    }
+
 
     /**
      * @param array $options
@@ -220,7 +351,7 @@ class CurlResource
      * @param array $params
      * @return mixed
      */
-    private function get($url = '', $params = []) // Removed type hints
+    private function get($url = '', $params = [])
     {
         if (is_array($params) && !empty($params)) {
             $url = rtrim($url, '?');
@@ -231,7 +362,7 @@ class CurlResource
         curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, 'GET');
         curl_setopt($this->curl, CURLOPT_HTTPGET, true);
 
-        return $this->request($url);
+        return $this->request2($url);
     }
 
     /**
@@ -239,7 +370,7 @@ class CurlResource
      * @param mixed $params
      * @return mixed
      */
-    private function post($url = '', $params = []) // Removed type hints
+    private function post($url = '', $params = [])
     {
         if (is_array($params)) {
             $params = json_encode($params);
@@ -249,7 +380,7 @@ class CurlResource
         curl_setopt($this->curl, CURLOPT_CUSTOMREQUEST, 'POST');
         curl_setopt($this->curl, CURLOPT_POST, true);
 
-        return $this->request($url);
+        return $this->request2($url);
     }
 
     /**
@@ -257,7 +388,7 @@ class CurlResource
      * @param array $params
      * @return mixed
      */
-    private function head($url = '', $params = []) // Removed type hints
+    private function head($url = '', $params = [])
     {
         if (is_array($params)) {
             $params = http_build_query($params, '', '&', $this->rfc);

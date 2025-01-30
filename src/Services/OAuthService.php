@@ -49,6 +49,7 @@ class OAuthService
 
         while ($retryCount < self::RETRY_LIMIT) {
             try {
+             ///Cached::clearCache();
                 $token = Cached::get(function () {
                     $response = $this->curl
                         ->setHeaders([
@@ -72,6 +73,8 @@ class OAuthService
 
                     return Crypt::encrypt($response['data']['access_token'], $this->getEncryptionKey());
                 }, $cacheName);
+
+               // echo $token . "\n";
 
                 return Crypt::decrypt($token, $this->getEncryptionKey());
             } catch (\Exception $e) { // changed from \Throwable to \Exception
